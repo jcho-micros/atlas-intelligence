@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Protocol
 
 
 @dataclass
@@ -14,10 +15,12 @@ class MarketplaceListing:
     image_url: str = ""
     is_personalized: bool = False
     is_digital: bool = False
+    shipping_price: float = 0.0
+    processing_time: str | None = None
 
 
-class MarketplaceConnector:
-    marketplace_name = "base"
+class MarketplaceConnector(Protocol):
+    name: str
 
     def search(self, keyword: str, limit: int = 25) -> list[MarketplaceListing]:
-        raise NotImplementedError
+        ...

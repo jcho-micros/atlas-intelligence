@@ -1,30 +1,36 @@
 import os
-from app.agents.research_agent import ResearchAgent
-from app.database.db import create_session_factory
+
+from app.connectors.sample import SampleConnector
+from app.database.manager import DatabaseManager
+from app.database.seed import seed_database
+from app.agents.research_engine import ResearchEngine
 from app.database.models import Opportunity, Keyword
-from app.services.keyword_service import KeywordService
-from app.utils.config import load_config, get_db_path
+from app.utils.config import load_config
 from app.utils.logger import get_logger
 
 
 def main() -> None:
     logger = get_logger("atlas")
     config = load_config()
-    db_path = get_db_path(config)
-    Session = create_session_factory(db_path)
 
-    logger.info("Starting %s v%s", config["project"]["name"], config["project"]["version"])
-    logger.info("Database: %s", db_path)
+    logger.info(
+        "Starting %s v%s",
+        config["project"]["name"],
+        config["project"]["version"],
+    )
 
-    with Session() as session:
-        keyword_service = KeywordService(session)
-        added = keyword_service.seed_keywords(config.get("seed_keywords", []))
-        keywords = keyword_service.list_enabled_keywords()
-        logger.info("Seeded %s new keywords. Enabled keywords: %s", added, len(keywords))
+    db = DatabaseManager()
+    db.initialize()
+
+    with db.get_session() as session:
+        seed_database(session)
 
         mode = os.getenv("ATLAS_DATA_MODE", "sample").lower()
-        agent = ResearchAgent(session, mode=mode)
-        agent.run_all(keywords, limit=25)
+        logger.info("Running in %s mode.", mode)
+
+        connector = SampleConnector()
+        engine = ResearchEngine(session, connector)
+        engine.run_all_enabled(limit=25)
 
         opportunities = (
             session.query(Opportunity, Keyword)
@@ -32,12 +38,14 @@ def main() -> None:
             .order_by(Opportunity.score.desc())
             .all()
         )
+
         print("\nTop Opportunities")
         print("-" * 90)
         for opp, kw in opportunities[:10]:
             print(
-                f"{opp.score:>6} | {kw.keyword[:34]:<34} | avg ${opp.avg_price:<6} | "
-                f"listings {opp.listing_count:<3} | {opp.recommendation:<13} | {opp.notes}"
+                f"{opp.score:>6} | {kw.keyword[:34]:<34} | "
+                f"avg ${opp.avg_price:<6} | listings {opp.listing_count:<3} | "
+                f"{opp.recommendation:<8} | {opp.notes}"
             )
 
 
