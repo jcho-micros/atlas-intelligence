@@ -79,20 +79,40 @@ class Listing(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     keyword_id: Mapped[int] = mapped_column(ForeignKey("keywords.id"), nullable=False)
     shop_id: Mapped[int | None] = mapped_column(ForeignKey("shops.id"), nullable=True)
+
     marketplace: Mapped[str] = mapped_column(String(50), default="sample")
     external_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+
     title: Mapped[str] = mapped_column(Text, nullable=False)
     price: Mapped[float] = mapped_column(Float, default=0.0)
     currency: Mapped[str] = mapped_column(String(10), default="USD")
+
     shop_name: Mapped[str] = mapped_column(String(255), default="Unknown")
     review_count: Mapped[int] = mapped_column(Integer, default=0)
     rating: Mapped[float] = mapped_column(Float, default=0.0)
+
     url: Mapped[str] = mapped_column(Text, default="")
     image_url: Mapped[str] = mapped_column(Text, default="")
+
     is_personalized: Mapped[bool] = mapped_column(Boolean, default=False)
     is_digital: Mapped[bool] = mapped_column(Boolean, default=False)
+
     shipping_price: Mapped[float] = mapped_column(Float, default=0.0)
     processing_time: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+    num_favorers: Mapped[int] = mapped_column(Integer, default=0)
+    views: Mapped[int] = mapped_column(Integer, default=0)
+    quantity: Mapped[int] = mapped_column(Integer, default=0)
+
+    tags: Mapped[str] = mapped_column(Text, default="")
+    materials: Mapped[str] = mapped_column(Text, default="")
+
+    processing_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    processing_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    created_timestamp: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_timestamp: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
