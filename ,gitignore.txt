@@ -8,3 +8,4 @@ data/cache/
 data/exports/
 .streamlit/
 EOF
+.env

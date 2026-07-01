@@ -1,4 +1,3 @@
-cat > app/agents/research_engine.py << 'EOF'
 from datetime import datetime
 
 from app.connectors.base import MarketplaceConnector
@@ -28,6 +27,7 @@ class ResearchEngine:
             self.session.commit()
 
             listings = self.connector.search(keyword.keyword, limit=limit)
+
             self.listing_service.save_listings(
                 keyword=keyword,
                 marketplace=self.connector.name,
@@ -58,4 +58,3 @@ class ResearchEngine:
 
         for keyword in keywords:
             self.run_keyword(keyword, limit=limit)
-EOF
