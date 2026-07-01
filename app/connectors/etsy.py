@@ -1,57 +1,102 @@
-from __future__ import annotations
-
 import os
-from typing import Any
-
 import requests
 
 from app.connectors.base import MarketplaceListing
 
 
 class EtsyConnector:
-    name = "etsy"
-    marketplace_name = "etsy"
-    base_url = "https://openapi.etsy.com/v3/application"
+    """
+    Etsy API v3 Connector
+    """
 
-    def __init__(self, api_key: str | None = None):
-        self.api_key = api_key or os.getenv("ETSY_API_KEY", "")
-        if not self.api_key:
-            raise ValueError("ETSY_API_KEY is required for the Etsy connector.")
+    name = "etsy"
+
+    BASE_URL = "https://openapi.etsy.com/v3/application"
+
+    def __init__(self):
+        self.keystring = os.getenv("ETSY_API_KEY")
+        self.shared_secret = os.getenv("ETSY_SHARED_SECRET")
+
+        if not self.keystring:
+            raise ValueError("Missing ETSY_API_KEY in .env")
+
+        if not self.shared_secret:
+            raise ValueError("Missing ETSY_SHARED_SECRET in .env")
+
+    def _headers(self):
+        """
+        Authentication headers.
+        """
+        return {
+            "x-api-key": f"{self.keystring}:{self.shared_secret}",
+            "Accept": "application/json",
+        }
 
     def search(self, keyword: str, limit: int = 25) -> list[MarketplaceListing]:
-        url = f"{self.base_url}/listings/active"
-        params = {"keywords": keyword, "limit": min(limit, 100), "includes": "Images,Shop"}
-        headers = {"x-api-key": self.api_key}
-        response = requests.get(url, params=params, headers=headers, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        return [self._normalize(item) for item in data.get("results", [])]
 
-    def _normalize(self, item: dict[str, Any]) -> MarketplaceListing:
-        images = item.get("Images") or []
-        image_url = images[0].get("url_fullxfull", "") if images else ""
-        shop = item.get("Shop") or {}
-        title = item.get("title", "")
-        description = item.get("description", "") or ""
-        text = f"{title} {description}".lower()
-        price = item.get("price", {})
-        amount = price.get("amount") if isinstance(price, dict) else None
-        divisor = price.get("divisor", 100) if isinstance(price, dict) else 100
-        currency = price.get("currency_code", "USD") if isinstance(price, dict) else "USD"
-        normalized_price = round(float(amount or 0) / float(divisor or 100), 2)
-        listing_id = str(item.get("listing_id", ""))
-        url = item.get("url") or f"https://www.etsy.com/listing/{listing_id}"
+        url = f"{self.BASE_URL}/listings/active"
 
-        return MarketplaceListing(
-            external_id=listing_id,
-            title=title,
-            price=normalized_price,
-            currency=currency,
-            shop_name=shop.get("shop_name", "Unknown"),
-            review_count=0,
-            rating=0.0,
-            url=url,
-            image_url=image_url,
-            is_personalized="personalized" in text or "custom" in text,
-            is_digital="digital" in text or "download" in text,
+        params = {
+            "keywords": keyword,
+            "limit": limit,
+        }
+
+        response = requests.get(
+            url,
+            headers=self._headers(),
+            params=params,
+            timeout=30,
         )
+
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Etsy API Error {response.status_code}\n"
+                f"{response.text}"
+            )
+
+        data = response.json()
+
+        listings: list[MarketplaceListing] = []
+
+        for item in data.get("results", []):
+
+            price = 0.0
+            currency = "USD"
+
+            if isinstance(item.get("price"), dict):
+                amount = item["price"].get("amount", 0)
+                divisor = item["price"].get("divisor", 100)
+
+                try:
+                    price = float(amount) / float(divisor)
+                except Exception:
+                    price = 0.0
+
+                currency = item["price"].get(
+                    "currency_code",
+                    "USD",
+                )
+
+            listings.append(
+                MarketplaceListing(
+                    external_id=str(item.get("listing_id", "")),
+                    title=item.get("title", ""),
+                    price=price,
+                    currency=currency,
+                    shop_name=str(item.get("shop_id", "")),
+                    review_count=0,
+                    rating=0.0,
+                    url=item.get("url", ""),
+                    image_url="",
+                    is_personalized=item.get(
+                        "is_personalizable",
+                        False,
+                    ),
+                    is_digital=item.get(
+                        "is_digital",
+                        False,
+                    ),
+                )
+            )
+
+        return listings
