@@ -14,37 +14,21 @@ class ResearchEngine:
         self.opportunity_service = OpportunityService(session)
 
     def run_keyword(self, keyword: Keyword, limit: int = 25) -> None:
-        run = ResearchRun(
-            keyword_id=keyword.id,
-            connector=self.connector.name,
-            status="started",
-        )
+        run = ResearchRun(keyword_id=keyword.id, connector=self.connector.name, status="started")
         self.session.add(run)
         self.session.commit()
-
         try:
             keyword.status = "running"
             self.session.commit()
-
             listings = self.connector.search(keyword.keyword, limit=limit)
-
-            self.listing_service.save_listings(
-                keyword=keyword,
-                marketplace=self.connector.name,
-                listings=listings,
-            )
-
+            self.listing_service.save_listings(keyword=keyword, marketplace=self.connector.name, listings=listings)
             self.opportunity_service.calculate_for_keyword(keyword)
-
             keyword.status = "completed"
             keyword.last_researched_at = datetime.utcnow()
-
             run.status = "completed"
             run.listings_found = len(listings)
             run.finished_at = datetime.utcnow()
-
             self.session.commit()
-
         except Exception as exc:
             keyword.status = "failed"
             run.status = "failed"
@@ -55,6 +39,5 @@ class ResearchEngine:
 
     def run_all_enabled(self, limit: int = 25) -> None:
         keywords = self.session.query(Keyword).filter_by(enabled=True).all()
-
         for keyword in keywords:
             self.run_keyword(keyword, limit=limit)

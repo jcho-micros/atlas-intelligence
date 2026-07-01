@@ -10,7 +10,6 @@ class DatabaseManager:
     def __init__(self, db_path: str = "data/atlas.db"):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
         self.engine = create_engine(f"sqlite:///{self.db_path}", echo=False)
         self.SessionLocal = sessionmaker(bind=self.engine)
 

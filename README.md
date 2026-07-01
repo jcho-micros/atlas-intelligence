@@ -1,52 +1,48 @@
-# Atlas Intelligence - Sprint 1
+# Atlas Intelligence v0.2.0
 
-Local AI commerce research foundation. Sprint 1 adds:
-
-- SQLite database
-- Keyword manager
-- Research queue records
-- Sample marketplace connector
-- Etsy connector placeholder for when credentials are approved
-- Opportunity scoring
-- Streamlit dashboard
+Local-first commerce intelligence platform for researching product opportunities.
 
 ## Setup
 
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+source .venv/Scripts/activate  # Git Bash on Windows
+python -m pip install -r requirements.txt
 cp .env.example .env
+```
+
+## Run sample research
+
+```bash
 python main.py
 ```
 
-## Run Dashboard
+or
 
 ```bash
-streamlit run app/dashboard/app.py
+python atlas.py research
 ```
 
-## Data Modes
+## Dashboard
 
-Use sample mode until Etsy approves your API app:
-
-```env
-ATLAS_DATA_MODE=sample
+```bash
+python atlas.py dashboard
 ```
 
-When ready:
+## Etsy mode
+
+Update `.env`:
 
 ```env
 ATLAS_DATA_MODE=etsy
-ETSY_API_KEY=your_keystring_here
+ETSY_API_KEY=your_keystring
+ETSY_SHARED_SECRET=your_secret
 ```
 
-## Add Keywords
-
-Edit `config/config.yaml`, then rerun:
+Then run:
 
 ```bash
 python main.py
 ```
 
-## Local Only
-
-Everything runs locally. No paid service is required.
+Never commit `.env`.

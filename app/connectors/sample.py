@@ -1,22 +1,26 @@
 import hashlib
 import random
-from app.connectors.base import MarketplaceConnector, MarketplaceListing
+
+from app.connectors.base import MarketplaceListing
 
 
-class SampleConnector(MarketplaceConnector):
+class SampleConnector:
+    name = "sample"
     marketplace_name = "sample"
 
     def search(self, keyword: str, limit: int = 25) -> list[MarketplaceListing]:
         seed = int(hashlib.md5(keyword.encode("utf-8")).hexdigest(), 16) % (2**32)
         rng = random.Random(seed)
-        listings = []
+        listings: list[MarketplaceListing] = []
         base_price = rng.uniform(14, 48)
+
         for i in range(limit):
             title_bits = [keyword.title()]
             if rng.random() > 0.35:
                 title_bits.append("Personalized")
             if rng.random() > 0.75:
                 title_bits.append("Digital Download")
+
             price = max(4.99, base_price + rng.uniform(-8, 12))
             listings.append(
                 MarketplaceListing(
@@ -29,6 +33,8 @@ class SampleConnector(MarketplaceConnector):
                     url="https://example.com/sample-listing",
                     is_personalized="Personalized" in title_bits,
                     is_digital="Digital Download" in title_bits,
+                    shipping_price=round(rng.uniform(0, 7.99), 2),
+                    processing_time=rng.choice(["1-2 days", "3-5 days", "1 week"]),
                 )
             )
         return listings

@@ -1,19 +1,29 @@
-from pathlib import Path
+from __future__ import annotations
+
 import os
-import yaml
+from pathlib import Path
+from typing import Any
+
 from dotenv import load_dotenv
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-load_dotenv(ROOT_DIR / ".env")
+
+def load_config() -> dict[str, Any]:
+    load_dotenv()
+    return {
+        "project": {"name": "Atlas Intelligence", "version": "0.2.0"},
+        "database": {"path": os.getenv("ATLAS_DB_PATH", "data/atlas.db")},
+        "research": {
+            "mode": os.getenv("ATLAS_DATA_MODE", "sample").lower(),
+            "limit": int(os.getenv("ATLAS_RESEARCH_LIMIT", "25")),
+        },
+        "etsy": {
+            "api_key": os.getenv("ETSY_API_KEY", ""),
+            "shared_secret": os.getenv("ETSY_SHARED_SECRET", ""),
+        },
+    }
 
 
-def load_config(path: str = "config/config.yaml") -> dict:
-    config_path = ROOT_DIR / path
-    with config_path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
-
-def get_db_path(config: dict) -> Path:
-    env_path = os.getenv("ATLAS_DB_PATH")
-    db_path = env_path or config.get("database", {}).get("path", "data/atlas.db")
-    return ROOT_DIR / db_path
+def get_db_path(config: dict[str, Any]) -> str:
+    path = Path(config["database"]["path"])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return str(path)

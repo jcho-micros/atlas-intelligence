@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+*.db
+data/atlas.db
+data/cache/
+data/exports/*.csv
+.streamlit/
+.pytest_cache/

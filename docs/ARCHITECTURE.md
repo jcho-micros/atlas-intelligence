@@ -1,33 +1,9 @@
 # Architecture
 
-Atlas is modular and connector-driven.
+Atlas follows a local-first modular architecture.
 
-```text
-Dashboard / CLI
-      |
-Services Layer
-      |
-Agents
-      |
-Connectors
-      |
-SQLite Database
-```
+Research flow:
 
-## Core Modules
+Keyword -> Connector -> MarketplaceListing -> ListingService -> SQLite -> OpportunityService -> Dashboard
 
-- `app/connectors`: Marketplace and trend data sources.
-- `app/agents`: Business logic agents.
-- `app/services`: Orchestration and workflows.
-- `app/models`: Pydantic/domain models.
-- `app/database`: SQLite setup and SQLAlchemy models.
-- `app/dashboard`: Streamlit dashboard.
-- `app/api`: Future FastAPI layer.
-
-## Design Rules
-
-- Connectors collect data only.
-- Agents analyze data only.
-- Services coordinate workflows.
-- Dashboard reads from services/database.
-- AI explains patterns; deterministic code calculates scores.
+AI is intentionally not part of data collection. AI analysis will be added later as an explanation layer over stored data.

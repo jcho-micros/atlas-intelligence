@@ -1,23 +1,17 @@
 project:
   name: Atlas Intelligence
-  version: 0.1.0
+  version: 0.2.0
 
 database:
   path: data/atlas.db
 
+research:
+  default_connector: sample
+  default_limit: 25
+
 seed_keywords:
-  - keyword: baseball lineup board
-    category: Baseball
-    priority: 10
-  - keyword: custom baseball dugout sign
-    category: Baseball
-    priority: 10
-  - keyword: baseball senior night poster
-    category: Baseball
-    priority: 8
-  - keyword: little league coach gift
-    category: Baseball
-    priority: 7
-  - keyword: baseball mom shirt
-    category: Apparel
-    priority: 3
+  - little league coach gift
+  - baseball lineup board
+  - custom baseball dugout sign
+  - baseball senior night poster
+  - baseball team banner

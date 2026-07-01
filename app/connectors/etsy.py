@@ -1,42 +1,57 @@
+from __future__ import annotations
+
 import os
+from typing import Any
+
 import requests
-from app.connectors.base import MarketplaceConnector, MarketplaceListing
+
+from app.connectors.base import MarketplaceListing
 
 
-class EtsyConnector(MarketplaceConnector):
+class EtsyConnector:
+    name = "etsy"
     marketplace_name = "etsy"
+    base_url = "https://openapi.etsy.com/v3/application"
 
-    def __init__(self):
-        self.api_key = os.getenv("ETSY_API_KEY", "").strip()
+    def __init__(self, api_key: str | None = None):
+        self.api_key = api_key or os.getenv("ETSY_API_KEY", "")
         if not self.api_key:
-            raise ValueError("ETSY_API_KEY is missing. Use ATLAS_DATA_MODE=sample until Etsy approval is complete.")
+            raise ValueError("ETSY_API_KEY is required for the Etsy connector.")
 
     def search(self, keyword: str, limit: int = 25) -> list[MarketplaceListing]:
-        url = "https://openapi.etsy.com/v3/application/listings/active"
-        params = {"keywords": keyword, "limit": min(limit, 100)}
+        url = f"{self.base_url}/listings/active"
+        params = {"keywords": keyword, "limit": min(limit, 100), "includes": "Images,Shop"}
         headers = {"x-api-key": self.api_key}
-        response = requests.get(url, params=params, headers=headers, timeout=20)
+        response = requests.get(url, params=params, headers=headers, timeout=30)
         response.raise_for_status()
-        payload = response.json()
-        results = payload.get("results", [])
-        listings = []
-        for row in results:
-            price_info = row.get("price") or {}
-            amount = price_info.get("amount")
-            divisor = price_info.get("divisor", 100)
-            price = float(amount or 0) / float(divisor or 100)
-            title = row.get("title") or "Untitled"
-            lower_title = title.lower()
-            listings.append(
-                MarketplaceListing(
-                    external_id=str(row.get("listing_id")),
-                    title=title,
-                    price=round(price, 2),
-                    currency=price_info.get("currency_code", "USD"),
-                    shop_name=str(row.get("shop_id", "Unknown")),
-                    url=row.get("url") or "",
-                    is_personalized="personalized" in lower_title or "custom" in lower_title,
-                    is_digital="digital" in lower_title or "download" in lower_title,
-                )
-            )
-        return listings
+        data = response.json()
+        return [self._normalize(item) for item in data.get("results", [])]
+
+    def _normalize(self, item: dict[str, Any]) -> MarketplaceListing:
+        images = item.get("Images") or []
+        image_url = images[0].get("url_fullxfull", "") if images else ""
+        shop = item.get("Shop") or {}
+        title = item.get("title", "")
+        description = item.get("description", "") or ""
+        text = f"{title} {description}".lower()
+        price = item.get("price", {})
+        amount = price.get("amount") if isinstance(price, dict) else None
+        divisor = price.get("divisor", 100) if isinstance(price, dict) else 100
+        currency = price.get("currency_code", "USD") if isinstance(price, dict) else "USD"
+        normalized_price = round(float(amount or 0) / float(divisor or 100), 2)
+        listing_id = str(item.get("listing_id", ""))
+        url = item.get("url") or f"https://www.etsy.com/listing/{listing_id}"
+
+        return MarketplaceListing(
+            external_id=listing_id,
+            title=title,
+            price=normalized_price,
+            currency=currency,
+            shop_name=shop.get("shop_name", "Unknown"),
+            review_count=0,
+            rating=0.0,
+            url=url,
+            image_url=image_url,
+            is_personalized="personalized" in text or "custom" in text,
+            is_digital="digital" in text or "download" in text,
+        )

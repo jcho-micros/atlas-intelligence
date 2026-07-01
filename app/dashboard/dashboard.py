@@ -1,73 +1,60 @@
-from pathlib import Path
 import pandas as pd
 import streamlit as st
-from sqlalchemy import create_engine
-from app.utils.config import load_config, get_db_path
+
+from app.database.manager import DatabaseManager
+from app.database.models import Keyword, Listing, Opportunity, Project, ResearchRun, Shop
+from app.utils.config import get_db_path, load_config
+
 
 st.set_page_config(page_title="Atlas Intelligence", layout="wide")
 st.title("Atlas Intelligence")
-st.caption("Local commerce research dashboard")
+st.caption("Local-first commerce intelligence platform")
 
 config = load_config()
-db_path = get_db_path(config)
+db = DatabaseManager(get_db_path(config))
+db.initialize()
 
-if not Path(db_path).exists():
-    st.warning("Database not found yet. Run `python main.py` first.")
-    st.stop()
+with db.get_session() as session:
+    cols = st.columns(5)
+    cols[0].metric("Projects", session.query(Project).count())
+    cols[1].metric("Keywords", session.query(Keyword).count())
+    cols[2].metric("Listings", session.query(Listing).count())
+    cols[3].metric("Shops", session.query(Shop).count())
+    cols[4].metric("Runs", session.query(ResearchRun).count())
 
-engine = create_engine(f"sqlite:///{db_path}")
+    st.subheader("Opportunities")
+    rows = (
+        session.query(Opportunity, Keyword)
+        .join(Keyword, Opportunity.keyword_id == Keyword.id)
+        .order_by(Opportunity.score.desc())
+        .all()
+    )
+    data = [
+        {
+            "keyword": kw.keyword,
+            "score": opp.score,
+            "recommendation": opp.recommendation,
+            "avg_price": opp.avg_price,
+            "median_price": opp.median_price,
+            "listings": opp.listing_count,
+            "notes": opp.notes,
+        }
+        for opp, kw in rows
+    ]
+    st.dataframe(pd.DataFrame(data), use_container_width=True)
 
-opportunities = pd.read_sql_query(
-    """
-    SELECT k.keyword, k.category, k.priority, o.score, o.recommendation,
-           o.avg_price, o.listing_count, o.demand_score, o.competition_score,
-           o.profit_score, o.personalization_score, o.confidence_score, o.notes, o.updated_at
-    FROM opportunities o
-    JOIN keywords k ON k.id = o.keyword_id
-    ORDER BY o.score DESC
-    """,
-    engine,
-)
-listings = pd.read_sql_query(
-    """
-    SELECT k.keyword, l.marketplace, l.title, l.price, l.shop_name,
-           l.review_count, l.rating, l.is_personalized, l.is_digital, l.url
-    FROM listings l
-    JOIN keywords k ON k.id = l.keyword_id
-    ORDER BY k.keyword, l.price DESC
-    """,
-    engine,
-)
-runs = pd.read_sql_query(
-    """
-    SELECT k.keyword, r.connector, r.status, r.listings_found, r.error_message,
-           r.started_at, r.finished_at
-    FROM research_runs r
-    JOIN keywords k ON k.id = r.keyword_id
-    ORDER BY r.started_at DESC
-    LIMIT 100
-    """,
-    engine,
-)
-
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Opportunities", len(opportunities))
-c2.metric("Listings", len(listings))
-c3.metric("Avg Score", round(opportunities["score"].mean(), 1) if not opportunities.empty else 0)
-c4.metric("Research Runs", len(runs))
-
-st.subheader("Top Opportunities")
-st.dataframe(opportunities, use_container_width=True, hide_index=True)
-
-st.subheader("Opportunity Scores")
-if not opportunities.empty:
-    st.bar_chart(opportunities.set_index("keyword")["score"])
-
-st.subheader("Listings Explorer")
-keyword_options = ["All"] + sorted(listings["keyword"].unique().tolist()) if not listings.empty else ["All"]
-selected = st.selectbox("Keyword", keyword_options)
-filtered = listings if selected == "All" else listings[listings["keyword"] == selected]
-st.dataframe(filtered, use_container_width=True, hide_index=True)
-
-st.subheader("Research Runs")
-st.dataframe(runs, use_container_width=True, hide_index=True)
+    st.subheader("Latest Listings")
+    listings = session.query(Listing).order_by(Listing.last_seen_at.desc()).limit(100).all()
+    listing_data = [
+        {
+            "title": item.title,
+            "price": item.price,
+            "shop": item.shop_name,
+            "marketplace": item.marketplace,
+            "personalized": item.is_personalized,
+            "digital": item.is_digital,
+            "url": item.url,
+        }
+        for item in listings
+    ]
+    st.dataframe(pd.DataFrame(listing_data), use_container_width=True)
