@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 def load_config() -> dict[str, Any]:
     load_dotenv()
     return {
-        "project": {"name": "Atlas Intelligence", "version": "0.2.0"},
+        "project": {"name": "Atlas Intelligence", "version": "0.3.0"},
         "database": {"path": os.getenv("ATLAS_DB_PATH", "data/atlas.db")},
         "research": {
             "mode": os.getenv("ATLAS_DATA_MODE", "sample").lower(),

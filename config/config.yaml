@@ -1,14 +1,6 @@
 project:
   name: Atlas Intelligence
-  version: 0.2.0
-
-database:
-  path: data/atlas.db
-
-research:
-  default_connector: sample
-  default_limit: 25
-
+  version: 0.4.0
 seed_keywords:
   - little league coach gift
   - baseball lineup board

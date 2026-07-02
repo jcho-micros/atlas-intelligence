@@ -1,23 +1,19 @@
-import argparse
 import subprocess
 import sys
-
-from main import main as run_research
-
-
-def dashboard() -> None:
-    subprocess.run([sys.executable, "-m", "streamlit", "run", "app/dashboard/dashboard.py"], check=True)
+from app.utils.settings import Settings
 
 
-def cli() -> None:
-    parser = argparse.ArgumentParser(description="Atlas Intelligence CLI")
-    parser.add_argument("command", choices=["research", "dashboard"], help="Command to run")
-    args = parser.parse_args()
-    if args.command == "research":
-        run_research()
-    elif args.command == "dashboard":
-        dashboard()
+def main():
+    command = sys.argv[1] if len(sys.argv) > 1 else "help"
+    if command == "research":
+        subprocess.run([sys.executable, "main.py"], check=True)
+    elif command == "dashboard":
+        subprocess.run([sys.executable, "-m", "streamlit", "run", "app/dashboard/dashboard.py", "--server.port", str(Settings.DASHBOARD_PORT)], check=True)
+    elif command == "help":
+        print("Atlas commands: research | dashboard")
+    else:
+        raise SystemExit(f"Unknown command: {command}")
 
 
 if __name__ == "__main__":
-    cli()
+    main()

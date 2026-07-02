@@ -1,48 +1,19 @@
-# Atlas Intelligence v0.2.0
+# Atlas OS Foundation Baseline
 
-Local-first commerce intelligence platform for researching product opportunities.
+This baseline defines the next architecture layer for Atlas: CEO Workspace, product projects, agent contracts, workflow events, and persistent agent memory.
 
-## Setup
+## How to apply
 
-```bash
-python -m venv .venv
-source .venv/Scripts/activate  # Git Bash on Windows
-python -m pip install -r requirements.txt
-cp .env.example .env
-```
+Copy these folders into your existing Atlas project:
 
-## Run sample research
-
-```bash
-python main.py
-```
-
-or
-
-```bash
-python atlas.py research
-```
-
-## Dashboard
-
-```bash
-python atlas.py dashboard
-```
-
-## Etsy mode
-
-Update `.env`:
-
-```env
-ATLAS_DATA_MODE=etsy
-ETSY_API_KEY=your_keystring
-ETSY_SHARED_SECRET=your_secret
-```
+- `docs/`
+- `app/os/`
+- `tests/`
 
 Then run:
 
 ```bash
-python main.py
+python -m pytest tests/test_os_baseline.py
 ```
 
-Never commit `.env`.
+This is a foundation layer only. It does not replace your current dashboard or Etsy connector yet.
