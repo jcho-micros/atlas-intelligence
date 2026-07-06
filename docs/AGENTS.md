@@ -1,25 +1,94 @@
-# Agents
+# Atlas Agent Contracts
 
-## ResearchAgent
-Collects listing data through marketplace connectors.
+## CEO Agent
 
-## CompetitionAgent
-Analyzes saturation, price ranges, review concentration, and dominant shops.
+Owns prioritization and decision support.
 
-## TrendAgent
-Checks seasonality and demand movement across external sources.
+Consumes:
+- CandidateProjectCreated
+- ProjectHealthChanged
+- LaunchReady
 
-## ProfitAgent
-Estimates margin after cost, fees, shipping, and advertising assumptions.
+Emits:
+- CandidateApproved
+- CandidateRejected
+- CandidateParked
+- ProjectPrioritized
 
-## OpportunityAgent
-Combines research, competition, trend, and profit data into a final opportunity score.
+## COO Agent
 
-## AnalystAgent
-Writes human-readable recommendations explaining why a product should be built, watched, or rejected.
+Owns operational coordination.
 
-## ProductAgent
-Generates product concepts after an opportunity is approved.
+Consumes:
+- CandidateApproved
+- ProductProjectCreated
 
-## ListingAgent
-Creates listing drafts, titles, descriptions, tags, and image prompts.
+Emits:
+- WorkflowStarted
+- DepartmentTaskCreated
+- ProjectBlocked
+
+## Research Agent
+
+Owns market discovery and opportunity creation.
+
+Skills:
+- Research marketplace keywords
+- Analyze competitors
+- Score opportunities
+- Create candidate projects
+
+## Product Agent
+
+Owns product concept and listing draft creation.
+
+Skills:
+- Generate product brief
+- Generate Etsy title
+- Generate description
+- Generate tags
+- Generate FAQ
+- Generate image prompt
+
+## Manufacturing Agent
+
+Owns supplier and production feasibility.
+
+Skills:
+- Find vendors
+- Estimate costs
+- Compare quotes
+- Analyze MOQ
+- Identify production risks
+
+## Finance Agent
+
+Owns unit economics and financial viability.
+
+Skills:
+- Calculate margin
+- Estimate fees
+- Estimate shipping impact
+- Break-even analysis
+- ROI analysis
+
+## Marketing Agent
+
+Owns go-to-market materials.
+
+Skills:
+- Etsy SEO
+- Pinterest content
+- Instagram copy
+- Email launch copy
+- Keyword positioning
+
+## Customer Success Agent
+
+Owns customer-facing operations.
+
+Skills:
+- FAQ
+- Return policy
+- Support macros
+- Personalization response templates

@@ -1,29 +1,28 @@
 # Changelog
 
-## v0.8.0
+## v1.0.0-alpha.2
 
-- Added CEO Workspace as the new operating view for Atlas OS.
-- Added product project lifecycle model.
-- Added agent task and event tracking.
-- Added launch readiness score and daily brief.
-- Added service layer for creating projects from opportunities.
+Atlas OS Core foundation release.
+
+Added:
+- Workflow Engine
+- Event Bus
+- Task Queue
+- Agent Registry
+- Project Workspace Service
+- Architecture and upgrade documentation
 
 # Changelog
 
-## v0.7.0 - Agent Command Center
+## v0.9.0
 
-Adds the first version of Atlas OS agent management.
+- Added CEO Inbox candidate project workflow.
+- Added CandidateProjectService.
+- Research now creates candidate projects for strong opportunities.
+- CEO can approve, park, or reject candidate projects.
+- Approval creates a ProductProject and initial AgentTask records.
+- Approval logs AgentEvent timeline activity.
 
-### Added
-- Agent Command Center dashboard tab.
-- Manufacturing Agent for supplier/vendor planning.
-- Logistics Agent for shipping and fulfillment planning.
-- Finance Agent for unit economics and margin planning.
-- Customer Success Agent for support workflow planning.
-- Accounting Agent for SKU/project accounting setup.
-- ProductLaunchPlan database model.
-- LaunchPlanService to orchestrate business agents.
+## v0.8.0
 
-### Notes
-- v0.7 uses deterministic local agents. LLM-backed agents can be plugged in later.
-- This release helps manage the questions behind product execution: who makes it, how it ships, how profit is calculated, how support is handled, and how accounting should be tracked.
+- Added CEO Workspace and Agent Command Center foundation.
