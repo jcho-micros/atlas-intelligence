@@ -12,3 +12,4 @@ class Settings:
     ETSY_SHARED_SECRET = os.getenv("ETSY_SHARED_SECRET", "")
     SEARCH_LIMIT = int(os.getenv("DEFAULT_SEARCH_LIMIT", "25"))
     DASHBOARD_PORT = int(os.getenv("DASHBOARD_PORT", "8501"))
+    CANDIDATE_THRESHOLD = float(os.getenv("CANDIDATE_THRESHOLD", "55"))
