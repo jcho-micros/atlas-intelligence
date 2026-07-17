@@ -1,28 +1,13 @@
 # Changelog
 
+## v1.1.0
+
+- Added Business Engine.
+- Added business workspace dashboard.
+- Added Business, Brand, Product, BusinessMetric, and BusinessOpportunity models.
+- Approved candidates now attach product projects to businesses.
+- Added business analytics queries.
+
 ## v1.0.0-alpha.2
 
-Atlas OS Core foundation release.
-
-Added:
-- Workflow Engine
-- Event Bus
-- Task Queue
-- Agent Registry
-- Project Workspace Service
-- Architecture and upgrade documentation
-
-# Changelog
-
-## v0.9.0
-
-- Added CEO Inbox candidate project workflow.
-- Added CandidateProjectService.
-- Research now creates candidate projects for strong opportunities.
-- CEO can approve, park, or reject candidate projects.
-- Approval creates a ProductProject and initial AgentTask records.
-- Approval logs AgentEvent timeline activity.
-
-## v0.8.0
-
-- Added CEO Workspace and Agent Command Center foundation.
+- Added Atlas OS core concepts, CEO Inbox, agent tasks, and events.

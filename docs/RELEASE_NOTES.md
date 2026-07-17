@@ -1,19 +1,18 @@
-# Atlas OS v1.0.0-alpha.2 Release Notes
+# Release Notes — Atlas v1.1.0 Business Engine
 
-## Theme
-Operating System Core.
+## Highlights
 
-## Added
-- `app/orchestration/event_bus.py`
-- `app/orchestration/workflow_engine.py`
-- `app/orchestration/task_queue.py`
-- `app/agents/core/base.py`
-- `app/agents/core/registry.py`
-- `app/services/project_workspace_service.py`
-- Core tests for agent registry and workflow engine
+Atlas now manages businesses, not only individual product projects. When a CEO approves a candidate, Atlas creates a ProductProject and attaches it to a Business workspace.
 
-## Upgrade
-Replace project files, keep `.env`, then run:
+## New
+
+- Business Engine service
+- Business Workspace dashboard tab
+- Business, Brand, Product, BusinessMetric, BusinessOpportunity models
+- Business forecast metrics
+- Product portfolio view
+
+## Validation
 
 ```bash
 python main.py

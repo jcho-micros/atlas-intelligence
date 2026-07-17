@@ -125,8 +125,9 @@ def product_projects(engine) -> pd.DataFrame:
 
 def agent_tasks(engine, project_id: int | None = None) -> pd.DataFrame:
     sql = """
-        SELECT at.id, pp.project_name, at.agent_name, at.task_name,
-               at.status, at.priority, at.output, at.created_at, at.completed_at
+        SELECT at.id, pp.project_name, at.agent_name, at.task_type, at.title,
+               at.description, at.status, at.priority, at.created_at,
+               at.started_at, at.completed_at
         FROM agent_tasks at
         JOIN product_projects pp ON pp.id = at.project_id
     """
@@ -136,6 +137,17 @@ def agent_tasks(engine, project_id: int | None = None) -> pd.DataFrame:
         params["project_id"] = project_id
     sql += " ORDER BY at.priority DESC, at.created_at DESC"
     return read_sql(engine, sql, params)
+
+
+def candidate_projects(engine) -> pd.DataFrame:
+    return read_sql(engine, """
+        SELECT cp.id, k.keyword, cp.title, cp.summary, cp.confidence,
+               cp.estimated_margin, cp.priority, cp.reason, cp.status,
+               cp.created_at, cp.reviewed_at
+        FROM candidate_projects cp
+        LEFT JOIN keywords k ON k.id = cp.keyword_id
+        ORDER BY cp.priority DESC, cp.confidence DESC, cp.created_at DESC
+    """)
 
 
 def agent_events(engine, project_id: int | None = None) -> pd.DataFrame:
@@ -151,3 +163,365 @@ def agent_events(engine, project_id: int | None = None) -> pd.DataFrame:
         params["project_id"] = project_id
     sql += " ORDER BY ae.created_at DESC"
     return read_sql(engine, sql, params)
+
+
+def businesses(engine) -> pd.DataFrame:
+    return read_sql(engine, """
+        SELECT b.id, b.name, b.brand_name, b.market, b.status, b.vision,
+               b.confidence, b.estimated_monthly_revenue, b.estimated_margin,
+               COALESCE(COUNT(DISTINCT p.id), 0) AS products,
+               COALESCE(COUNT(DISTINCT pp.id), 0) AS projects,
+               ROUND(COALESCE(AVG(pp.readiness_score), 0), 1) AS avg_readiness,
+               b.created_at, b.updated_at
+        FROM businesses b
+        LEFT JOIN products p ON p.business_id = b.id
+        LEFT JOIN product_projects pp ON pp.business_id = b.id
+        GROUP BY b.id
+        ORDER BY b.estimated_monthly_revenue DESC, b.confidence DESC
+    """)
+
+
+def products_for_business(engine, business_id: int) -> pd.DataFrame:
+    return read_sql(engine, """
+        SELECT p.id, p.name, p.status, p.category, p.target_customer,
+               p.suggested_price_min, p.suggested_price_max, p.confidence,
+               p.summary, pp.project_name, pp.stage, pp.readiness_score,
+               pp.manufacturing_status, pp.finance_status, pp.marketing_status,
+               pp.launch_status, p.created_at
+        FROM products p
+        LEFT JOIN product_projects pp ON pp.product_id = p.id
+        WHERE p.business_id = :business_id
+        ORDER BY p.confidence DESC, p.created_at DESC
+    """, {"business_id": business_id})
+
+
+def business_metrics(engine, business_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT bm.id, b.name AS business, bm.product_count, bm.active_project_count,
+               bm.avg_confidence, bm.estimated_monthly_revenue,
+               bm.estimated_margin, bm.launch_readiness, bm.captured_at
+        FROM business_metrics bm
+        JOIN businesses b ON b.id = bm.business_id
+    """
+    params = {}
+    if business_id is not None:
+        sql += " WHERE bm.business_id = :business_id"
+        params["business_id"] = business_id
+    sql += " ORDER BY bm.captured_at DESC"
+    return read_sql(engine, sql, params)
+
+
+def business_opportunities(engine) -> pd.DataFrame:
+    return read_sql(engine, """
+        SELECT bo.id, bo.title, bo.market, bo.summary, bo.confidence,
+               bo.estimated_monthly_revenue, bo.estimated_margin,
+               bo.status, bo.reason, bo.created_at, bo.reviewed_at
+        FROM business_opportunities bo
+        ORDER BY bo.confidence DESC, bo.created_at DESC
+    """)
+
+
+def departments(engine) -> pd.DataFrame:
+    return read_sql(engine, """
+        SELECT d.id, d.name, d.description, COUNT(e.id) AS employees
+        FROM departments d
+        LEFT JOIN employees e ON e.department_id = d.id
+        GROUP BY d.id
+        ORDER BY d.name
+    """)
+
+
+def employees(engine) -> pd.DataFrame:
+    return read_sql(engine, """
+        SELECT e.id, e.avatar_emoji, e.name, e.title,
+               COALESCE(d.name, 'Unassigned') AS department,
+               COALESCE(m.name, '') AS manager,
+               e.status, e.current_task, e.mission, e.personality, e.goals,
+               e.performance_score, e.workload, e.started_at, e.last_active_at,
+               COUNT(DISTINCT s.id) AS skills_count,
+               COUNT(DISTINCT t.id) AS tools_count,
+               COUNT(DISTINCT msg.id) AS inbox_count
+        FROM employees e
+        LEFT JOIN departments d ON d.id = e.department_id
+        LEFT JOIN employees m ON m.id = e.manager_id
+        LEFT JOIN employee_skills s ON s.employee_id = e.id
+        LEFT JOIN employee_tools t ON t.employee_id = e.id
+        LEFT JOIN employee_messages msg ON msg.recipient_id = e.id AND msg.status = 'unread'
+        GROUP BY e.id
+        ORDER BY d.name, e.title
+    """)
+
+
+def employee_skills(engine, employee_id: int) -> pd.DataFrame:
+    return read_sql(engine, """
+        SELECT skill, proficiency, created_at
+        FROM employee_skills
+        WHERE employee_id = :employee_id
+        ORDER BY skill
+    """, {"employee_id": employee_id})
+
+
+def employee_tools(engine, employee_id: int) -> pd.DataFrame:
+    return read_sql(engine, """
+        SELECT tool_name, access_level, created_at
+        FROM employee_tools
+        WHERE employee_id = :employee_id
+        ORDER BY tool_name
+    """, {"employee_id": employee_id})
+
+
+def employee_memories(engine, employee_id: int) -> pd.DataFrame:
+    return read_sql(engine, """
+        SELECT memory_type, content, importance, created_at, last_used_at
+        FROM employee_memories
+        WHERE employee_id = :employee_id
+        ORDER BY importance DESC, created_at DESC
+    """, {"employee_id": employee_id})
+
+
+def employee_messages(engine, employee_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT em.id,
+               COALESCE(sender.name, 'Atlas') AS sender,
+               COALESCE(recipient.name, 'Atlas') AS recipient,
+               em.subject, em.body, em.status, em.created_at, em.read_at
+        FROM employee_messages em
+        LEFT JOIN employees sender ON sender.id = em.sender_id
+        LEFT JOIN employees recipient ON recipient.id = em.recipient_id
+    """
+    params = {}
+    if employee_id is not None:
+        sql += " WHERE em.sender_id = :employee_id OR em.recipient_id = :employee_id"
+        params["employee_id"] = employee_id
+    sql += " ORDER BY em.created_at DESC"
+    return read_sql(engine, sql, params)
+
+
+def employee_kpis(engine, employee_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT e.name, ek.metric_name, ek.metric_value, ek.target_value, ek.captured_at
+        FROM employee_kpis ek
+        JOIN employees e ON e.id = ek.employee_id
+    """
+    params = {}
+    if employee_id is not None:
+        sql += " WHERE ek.employee_id = :employee_id"
+        params["employee_id"] = employee_id
+    sql += " ORDER BY ek.captured_at DESC"
+    return read_sql(engine, sql, params)
+
+
+def employee_goals(engine, employee_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT eg.id, e.name, e.title, eg.goal_type, eg.title AS goal_title,
+               eg.description, eg.status, eg.priority, eg.progress,
+               eg.created_at, eg.updated_at
+        FROM employee_goals eg
+        JOIN employees e ON e.id = eg.employee_id
+    """
+    params = {}
+    if employee_id is not None:
+        sql += " WHERE eg.employee_id = :employee_id"
+        params["employee_id"] = employee_id
+    sql += " ORDER BY eg.priority DESC, eg.created_at DESC"
+    return read_sql(engine, sql, params)
+
+
+def employee_thoughts(engine, employee_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT et.id, e.name, e.title, et.thought_type, et.content,
+               et.confidence, et.created_at
+        FROM employee_thoughts et
+        JOIN employees e ON e.id = et.employee_id
+    """
+    params = {}
+    if employee_id is not None:
+        sql += " WHERE et.employee_id = :employee_id"
+        params["employee_id"] = employee_id
+    sql += " ORDER BY et.created_at DESC"
+    return read_sql(engine, sql, params)
+
+
+def employee_decisions(engine, employee_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT ed.id, e.name, e.title AS employee_title, ed.decision_type,
+               ed.title, ed.reasoning, ed.outcome, ed.confidence, ed.created_at
+        FROM employee_decisions ed
+        JOIN employees e ON e.id = ed.employee_id
+    """
+    params = {}
+    if employee_id is not None:
+        sql += " WHERE ed.employee_id = :employee_id"
+        params["employee_id"] = employee_id
+    sql += " ORDER BY ed.created_at DESC"
+    return read_sql(engine, sql, params)
+
+
+def employee_reflections(engine, employee_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT er.id, e.name, er.content, er.lesson, er.importance, er.created_at
+        FROM employee_reflections er
+        JOIN employees e ON e.id = er.employee_id
+    """
+    params = {}
+    if employee_id is not None:
+        sql += " WHERE er.employee_id = :employee_id"
+        params["employee_id"] = employee_id
+    sql += " ORDER BY er.importance DESC, er.created_at DESC"
+    return read_sql(engine, sql, params)
+
+
+def vendors(engine) -> pd.DataFrame:
+    return read_sql(engine, """
+        SELECT v.id, v.name, v.category, v.relationship_status, v.location,
+               v.website, v.contact_name, v.contact_email, v.capabilities,
+               v.notes, v.trust_score, v.quality_score, v.communication_score,
+               v.pricing_score, v.delivery_score, v.average_lead_time_days,
+               v.minimum_order_quantity, v.average_margin, v.projects_completed,
+               v.risk_level, v.recommendation, v.created_at, v.updated_at,
+               COUNT(DISTINCT q.id) AS quote_count,
+               COUNT(DISTINCT ev.id) AS event_count
+        FROM vendors v
+        LEFT JOIN vendor_quotes q ON q.vendor_id = v.id
+        LEFT JOIN vendor_events ev ON ev.vendor_id = v.id
+        GROUP BY v.id
+        ORDER BY v.trust_score DESC, v.average_margin DESC
+    """)
+
+
+def vendor_quotes(engine, vendor_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT q.id, v.name AS vendor, q.product_name, q.unit_cost,
+               q.shipping_cost, q.landed_cost, q.moq, q.lead_time_days,
+               q.quote_status, q.notes, q.created_at
+        FROM vendor_quotes q
+        JOIN vendors v ON v.id = q.vendor_id
+    """
+    params = {}
+    if vendor_id is not None:
+        sql += " WHERE q.vendor_id = :vendor_id"
+        params["vendor_id"] = vendor_id
+    sql += " ORDER BY q.landed_cost ASC, q.lead_time_days ASC"
+    return read_sql(engine, sql, params)
+
+
+def vendor_events(engine, vendor_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT ev.id, v.name AS vendor, ev.event_type, ev.message,
+               ev.actor, ev.created_at
+        FROM vendor_events ev
+        JOIN vendors v ON v.id = ev.vendor_id
+    """
+    params = {}
+    if vendor_id is not None:
+        sql += " WHERE ev.vendor_id = :vendor_id"
+        params["vendor_id"] = vendor_id
+    sql += " ORDER BY ev.created_at DESC"
+    return read_sql(engine, sql, params)
+
+
+def vendor_contacts(engine, vendor_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT vc.id, v.name AS vendor, vc.name, vc.title, vc.email,
+               vc.phone, vc.is_primary, vc.created_at
+        FROM vendor_contacts vc
+        JOIN vendors v ON v.id = vc.vendor_id
+    """
+    params = {}
+    if vendor_id is not None:
+        sql += " WHERE vc.vendor_id = :vendor_id"
+        params["vendor_id"] = vendor_id
+    sql += " ORDER BY vc.is_primary DESC, vc.name"
+    return read_sql(engine, sql, params)
+
+
+def finance_analyses(engine, business_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT fa.id, b.name AS business, pp.project_name,
+               fa.scenario_name, fa.selling_price, fa.unit_cost,
+               fa.packaging_cost, fa.outbound_shipping_cost,
+               fa.marketplace_fee, fa.payment_fee, fa.ad_cost, fa.reserve_cost,
+               fa.total_variable_cost, fa.gross_profit, fa.gross_margin,
+               fa.break_even_units, fa.target_price, fa.monthly_units_estimate,
+               fa.monthly_profit_estimate, fa.approval_status,
+               fa.recommendation, fa.assumptions, fa.created_at, fa.updated_at
+        FROM finance_analyses fa
+        LEFT JOIN businesses b ON b.id = fa.business_id
+        LEFT JOIN product_projects pp ON pp.id = fa.project_id
+    """
+    params = {}
+    if business_id is not None:
+        sql += " WHERE fa.business_id = :business_id"
+        params["business_id"] = business_id
+    sql += " ORDER BY fa.gross_margin DESC, fa.monthly_profit_estimate DESC"
+    return read_sql(engine, sql, params)
+
+
+def finance_scenarios(engine, analysis_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT fs.id, fa.id AS analysis_id, pp.project_name,
+               fs.name, fs.selling_price, fs.unit_cost, fs.gross_margin,
+               fs.monthly_units, fs.monthly_profit, fs.risk_level,
+               fs.notes, fs.created_at
+        FROM finance_scenarios fs
+        JOIN finance_analyses fa ON fa.id = fs.analysis_id
+        LEFT JOIN product_projects pp ON pp.id = fa.project_id
+    """
+    params = {}
+    if analysis_id is not None:
+        sql += " WHERE fs.analysis_id = :analysis_id"
+        params["analysis_id"] = analysis_id
+    sql += " ORDER BY fs.monthly_profit DESC, fs.gross_margin DESC"
+    return read_sql(engine, sql, params)
+
+
+def finance_events(engine, business_id: int | None = None) -> pd.DataFrame:
+    sql = """
+        SELECT fe.id, b.name AS business, pp.project_name,
+               fe.event_type, fe.message, fe.actor, fe.created_at
+        FROM finance_events fe
+        JOIN finance_analyses fa ON fa.id = fe.analysis_id
+        LEFT JOIN businesses b ON b.id = fa.business_id
+        LEFT JOIN product_projects pp ON pp.id = fa.project_id
+    """
+    params = {}
+    if business_id is not None:
+        sql += " WHERE fa.business_id = :business_id"
+        params["business_id"] = business_id
+    sql += " ORDER BY fe.created_at DESC"
+    return read_sql(engine, sql, params)
+
+
+def design_concepts(engine, project_id=None):
+    sql = """
+    SELECT dc.id, dc.project_id, pp.project_name, dc.designer_name, dc.concept_name,
+           dc.concept_version, dc.design_rationale, dc.materials, dc.dimensions,
+           dc.target_customer, dc.suggested_price, dc.image_prompt, dc.mockup_svg,
+           dc.designer_notes, dc.status, dc.created_at, dc.reviewed_at
+    FROM design_concepts dc JOIN product_projects pp ON pp.id = dc.project_id
+    """
+    params = {}
+    if project_id is not None:
+        sql += " WHERE dc.project_id = :project_id"
+        params["project_id"] = project_id
+    sql += " ORDER BY dc.created_at DESC, dc.id DESC"
+    return read_sql(engine, sql, params)
+
+
+def sourcing_assignments(engine):
+    return read_sql(engine, """
+    SELECT sa.id, sa.project_id, pp.project_name, sa.owner_name, sa.title,
+           sa.requirements, sa.status, sa.created_at, sa.completed_at
+    FROM sourcing_assignments sa JOIN product_projects pp ON pp.id = sa.project_id
+    ORDER BY sa.created_at DESC
+    """)
+
+
+def supplier_recommendations(engine):
+    return read_sql(engine, """
+    SELECT sr.id, sr.project_id, pp.project_name, sr.supplier_name, sr.confidence,
+           sr.reason, sr.landed_cost, sr.lead_time_days, sr.moq, sr.status,
+           sr.created_at, sr.reviewed_at
+    FROM supplier_recommendations sr JOIN product_projects pp ON pp.id = sr.project_id
+    ORDER BY sr.created_at DESC
+    """)

@@ -13,3 +13,7 @@ class Settings:
     SEARCH_LIMIT = int(os.getenv("DEFAULT_SEARCH_LIMIT", "25"))
     DASHBOARD_PORT = int(os.getenv("DASHBOARD_PORT", "8501"))
     CANDIDATE_THRESHOLD = float(os.getenv("CANDIDATE_THRESHOLD", "55"))
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+    IMAGE_MODEL = os.getenv("ATLAS_IMAGE_MODEL", "gpt-image-1")
+    IMAGE_QUALITY = os.getenv("ATLAS_IMAGE_QUALITY", "medium")
+    IMAGE_SIZE = os.getenv("ATLAS_IMAGE_SIZE", "1536x1024")
