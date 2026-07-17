@@ -74,3 +74,51 @@ def test_notification_lifecycle_is_audited(tmp_path):
     assert notification.read_at is not None
     assert session.query(AuditEvent).filter_by(action="notification.read").count() == 1
     session.close()
+
+
+def test_role_management_is_audited_and_protects_last_owner(tmp_path):
+    from app.foundation import RoleAssignmentError
+
+    session, service = make_service(tmp_path)
+    result = service.bootstrap()
+    org, owner = result["organization"], result["owner"]
+    employee = UserIdentity(
+        organization_id=org.id,
+        email="employee@example.com",
+        display_name="Employee User",
+    )
+    session.add(employee)
+    session.commit()
+
+    assert service.assign_role(employee.id, "Employee", actor_id=owner.id)
+    assert not service.assign_role(employee.id, "Employee", actor_id=owner.id)
+    assert service.roles_for(employee.id) == {"Employee"}
+    assert service.can(employee.id, "workflows.execute")
+    assert not service.can(employee.id, "access.manage")
+
+    assert service.revoke_role(employee.id, "Employee", actor_id=owner.id)
+    assert service.roles_for(employee.id) == set()
+    with pytest.raises(RoleAssignmentError):
+        service.revoke_role(owner.id, "Owner", actor_id=owner.id)
+
+    assert session.query(AuditEvent).filter_by(action="access.role_assigned").count() == 1
+    assert session.query(AuditEvent).filter_by(action="access.role_revoked").count() == 1
+    session.close()
+
+
+def test_only_access_managers_can_change_roles(tmp_path):
+    session, service = make_service(tmp_path)
+    result = service.bootstrap()
+    org = result["organization"]
+    viewer_role = session.query(AccessRole).filter_by(organization_id=org.id, name="Viewer").one()
+    viewer = UserIdentity(organization_id=org.id, email="viewer2@example.com", display_name="Viewer")
+    target = UserIdentity(organization_id=org.id, email="target@example.com", display_name="Target")
+    session.add_all([viewer, target])
+    session.flush()
+    session.add(UserRole(identity_id=viewer.id, role_id=viewer_role.id))
+    session.commit()
+
+    with pytest.raises(PermissionDenied):
+        service.assign_role(target.id, "Employee", actor_id=viewer.id)
+    assert service.roles_for(target.id) == set()
+    session.close()

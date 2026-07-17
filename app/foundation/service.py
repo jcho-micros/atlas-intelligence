@@ -20,6 +20,14 @@ class PermissionDenied(RuntimeError):
     """Raised when an identity attempts an unauthorized action."""
 
 
+class RoleNotFound(LookupError):
+    """Raised when a requested access role does not exist."""
+
+
+class RoleAssignmentError(RuntimeError):
+    """Raised when an access-role change would violate RBAC rules."""
+
+
 class FoundationService:
     """Production-facing foundation services for Atlas Enterprise."""
 
@@ -126,6 +134,115 @@ class FoundationService:
         self.record_audit(organization.id, "foundation.bootstrap", "organization", str(organization.id), owner)
         self.session.commit()
         return {"organization": organization, "owner": owner, "roles": roles}
+
+    def roles_for(self, identity_id: int) -> set[str]:
+        rows = (
+            self.session.query(AccessRole.name)
+            .join(UserRole, UserRole.role_id == AccessRole.id)
+            .filter(UserRole.identity_id == identity_id)
+            .all()
+        )
+        return {row[0] for row in rows}
+
+    def assign_role(
+        self,
+        identity_id: int,
+        role_name: str,
+        *,
+        actor_id: int | None = None,
+        commit: bool = True,
+    ) -> bool:
+        identity = self.session.query(UserIdentity).filter_by(id=identity_id).first()
+        if identity is None:
+            raise ValueError(f"Identity {identity_id} was not found")
+        if actor_id is not None:
+            self.require(actor_id, "access.manage")
+
+        role = self.session.query(AccessRole).filter_by(
+            organization_id=identity.organization_id,
+            name=role_name,
+        ).first()
+        if role is None:
+            raise RoleNotFound(f"Role not found: {role_name}")
+
+        existing = self.session.query(UserRole).filter_by(
+            identity_id=identity.id,
+            role_id=role.id,
+        ).first()
+        if existing is not None:
+            return False
+
+        self.session.add(UserRole(identity_id=identity.id, role_id=role.id))
+        self.record_audit(
+            identity.organization_id,
+            "access.role_assigned",
+            "identity",
+            str(identity.id),
+            self.session.query(UserIdentity).filter_by(id=actor_id).first() if actor_id else None,
+            details={"role": role.name, "target": identity.display_name},
+        )
+        if commit:
+            self.session.commit()
+        else:
+            self.session.flush()
+        return True
+
+    def revoke_role(
+        self,
+        identity_id: int,
+        role_name: str,
+        *,
+        actor_id: int | None = None,
+        commit: bool = True,
+    ) -> bool:
+        identity = self.session.query(UserIdentity).filter_by(id=identity_id).first()
+        if identity is None:
+            raise ValueError(f"Identity {identity_id} was not found")
+        if actor_id is not None:
+            self.require(actor_id, "access.manage")
+
+        role = self.session.query(AccessRole).filter_by(
+            organization_id=identity.organization_id,
+            name=role_name,
+        ).first()
+        if role is None:
+            raise RoleNotFound(f"Role not found: {role_name}")
+
+        assignment = self.session.query(UserRole).filter_by(
+            identity_id=identity.id,
+            role_id=role.id,
+        ).first()
+        if assignment is None:
+            return False
+
+        if role.name == "Owner":
+            owner_count = (
+                self.session.query(UserRole)
+                .join(UserIdentity, UserIdentity.id == UserRole.identity_id)
+                .filter(
+                    UserRole.role_id == role.id,
+                    UserIdentity.organization_id == identity.organization_id,
+                    UserIdentity.status == "active",
+                )
+                .count()
+            )
+            if owner_count <= 1:
+                raise RoleAssignmentError("An organization must retain at least one active Owner")
+
+        self.session.delete(assignment)
+        self.record_audit(
+            identity.organization_id,
+            "access.role_revoked",
+            "identity",
+            str(identity.id),
+            self.session.query(UserIdentity).filter_by(id=actor_id).first() if actor_id else None,
+            details={"role": role.name, "target": identity.display_name},
+        )
+        if commit:
+            self.session.commit()
+        else:
+            self.session.flush()
+        return True
 
     def permissions_for(self, identity_id: int) -> set[str]:
         rows = (
