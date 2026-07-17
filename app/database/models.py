@@ -29,6 +29,101 @@ class Organization(Base):
     roles = relationship("AccessRole", back_populates="organization", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="organization", cascade="all, delete-orphan")
     audit_events = relationship("AuditEvent", back_populates="organization", cascade="all, delete-orphan")
+    departments = relationship(
+        "OrganizationDepartment",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+    teams = relationship(
+        "OrganizationTeam",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+
+
+class OrganizationDepartment(Base):
+    __tablename__ = "organization_departments"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "name", name="uq_org_department_name"),
+        UniqueConstraint("organization_id", "code", name="uq_org_department_code"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    code: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(
+        String(50),
+        default="active",
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    organization = relationship("Organization", back_populates="departments")
+    teams = relationship(
+        "OrganizationTeam",
+        back_populates="department",
+        cascade="all, delete-orphan",
+    )
+
+
+class OrganizationTeam(Base):
+    __tablename__ = "organization_teams"
+    __table_args__ = (
+        UniqueConstraint("department_id", "name", name="uq_department_team_name"),
+        UniqueConstraint("department_id", "code", name="uq_department_team_code"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id"),
+        nullable=False,
+        index=True,
+    )
+    department_id: Mapped[int] = mapped_column(
+        ForeignKey("organization_departments.id"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    code: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(
+        String(50),
+        default="active",
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    organization = relationship("Organization", back_populates="teams")
+    department = relationship("OrganizationDepartment", back_populates="teams")
 
 
 class UserIdentity(Base):
