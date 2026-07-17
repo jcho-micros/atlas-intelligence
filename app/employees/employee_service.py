@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from app.core.identity import Department as IdentityDepartment, IdentityService, IdentityType
 from app.database.models import (
     Department,
     Employee,
@@ -12,6 +13,8 @@ from app.database.models import (
     EmployeeThought,
     EmployeeSkill,
     EmployeeTool,
+    Organization,
+    UserIdentity,
 )
 
 
@@ -212,6 +215,7 @@ class EmployeeService:
             self._ensure_thought(employee, spec)
             self._ensure_kpis(employee, spec)
 
+        self._ensure_employee_identities(employees_by_name)
         self._ensure_messages(employees_by_name)
         self.session.commit()
 
@@ -325,3 +329,64 @@ class EmployeeService:
                     status="unread",
                 )
             )
+
+    def _ensure_employee_identities(self, employees_by_name: dict[str, Employee]) -> None:
+        organization = self.session.query(Organization).filter_by(slug="atlas-enterprise").first()
+        if organization is None:
+            organization = Organization(name="Atlas Enterprise", slug="atlas-enterprise")
+            self.session.add(organization)
+            self.session.flush()
+
+        identity_service = IdentityService(self.session)
+        identities_by_employee: dict[int, UserIdentity] = {}
+
+        for employee in employees_by_name.values():
+            identity = self.session.query(UserIdentity).filter_by(employee_id=employee.id).first()
+            if identity is None and employee.name == "John Cho":
+                identity = self.session.query(UserIdentity).filter_by(
+                    organization_id=organization.id,
+                    email="john@atlas.local",
+                ).first()
+
+            department_value = self._identity_department(employee.department.name if employee.department else None)
+            if identity is None:
+                domain_identity = identity_service.create_identity(
+                    organization_id=organization.id,
+                    display_name=employee.name,
+                    identity_type=(IdentityType.HUMAN if employee.name == "John Cho" else IdentityType.AI_EMPLOYEE),
+                    email="john@atlas.local" if employee.name == "John Cho" else None,
+                    system_name=None if employee.name == "John Cho" else self._system_name(employee.name),
+                    department=department_value,
+                    employee_id=employee.id,
+                )
+                identity = self.session.query(UserIdentity).filter_by(id=domain_identity.id).one()
+            else:
+                identity.employee_id = employee.id
+                identity.display_name = employee.name
+                identity.department = department_value.value if department_value else None
+                if employee.name != "John Cho" and not identity.system_name:
+                    identity.system_name = self._system_name(employee.name)
+                self.session.flush()
+
+            identities_by_employee[employee.id] = identity
+
+        for employee in employees_by_name.values():
+            identity = identities_by_employee[employee.id]
+            identity.manager_id = identities_by_employee[employee.manager_id].id if employee.manager_id else None
+
+        self.session.flush()
+
+    @staticmethod
+    def _identity_department(name: str | None) -> IdentityDepartment | None:
+        if not name:
+            return None
+        normalized = name.strip().lower().replace(" ", "_")
+        try:
+            return IdentityDepartment(normalized)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _system_name(name: str) -> str:
+        return "-".join(name.lower().split())
+

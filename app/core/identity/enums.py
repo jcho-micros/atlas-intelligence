@@ -22,3 +22,6 @@ class Department(str, Enum):
     SALES = "sales"
     HR = "hr"
     RESEARCH = "research"
+    PRODUCT = "product"
+    MANUFACTURING = "manufacturing"
+    CUSTOMER_SUCCESS = "customer_success"

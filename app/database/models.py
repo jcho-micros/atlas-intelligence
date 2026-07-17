@@ -33,7 +33,10 @@ class Organization(Base):
 
 class UserIdentity(Base):
     __tablename__ = "user_identities"
-    __table_args__ = (UniqueConstraint("organization_id", "email", name="uq_org_identity_email"),)
+    __table_args__ = (
+        UniqueConstraint("organization_id", "email", name="uq_org_identity_email"),
+        UniqueConstraint("employee_id", name="uq_identity_employee"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
@@ -50,7 +53,7 @@ class UserIdentity(Base):
     last_active_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     organization = relationship("Organization", back_populates="identities")
-    employee = relationship("Employee")
+    employee = relationship("Employee", back_populates="identity", uselist=False)
     manager = relationship("UserIdentity", remote_side=[id], foreign_keys=[manager_id])
     role_assignments = relationship("UserRole", back_populates="identity", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="recipient")
@@ -602,6 +605,7 @@ class Employee(Base):
         back_populates="employees",
         foreign_keys=[department_id],
     )
+    identity = relationship("UserIdentity", back_populates="employee", uselist=False)
     manager = relationship(
         "Employee",
         remote_side=[id],

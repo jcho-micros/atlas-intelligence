@@ -104,3 +104,49 @@ def test_manager_must_be_active_and_in_same_organization(tmp_path):
     with pytest.raises(InvalidManager):
         service.assign_manager(worker.id, 99999)
     session.close()
+
+
+def test_default_workforce_receives_canonical_identities(tmp_path):
+    from app.employees.employee_service import EmployeeService
+    from app.database.models import Employee, UserIdentity
+
+    db = DatabaseManager(str(tmp_path / "workforce-identities.db"))
+    db.initialize()
+    session = db.get_session()
+
+    EmployeeService(session).ensure_default_workforce()
+
+    employees = session.query(Employee).all()
+    identities = session.query(UserIdentity).filter(UserIdentity.employee_id.is_not(None)).all()
+
+    assert len(employees) == len(identities) == len(EmployeeService.DEFAULT_EMPLOYEES)
+    assert len({identity.employee_id for identity in identities}) == len(employees)
+
+    john = session.query(Employee).filter_by(name="John Cho").one()
+    john_identity = session.query(UserIdentity).filter_by(employee_id=john.id).one()
+    assert john_identity.identity_type == "human"
+    assert john_identity.email == "john@atlas.local"
+
+    researcher = session.query(Employee).filter_by(name="Ava Chen").one()
+    researcher_identity = session.query(UserIdentity).filter_by(employee_id=researcher.id).one()
+    assert researcher_identity.identity_type == "ai_employee"
+    assert researcher_identity.system_name == "ava-chen"
+    assert researcher_identity.manager_id is not None
+    session.close()
+
+
+def test_workforce_identity_sync_is_idempotent(tmp_path):
+    from app.employees.employee_service import EmployeeService
+    from app.database.models import UserIdentity
+
+    db = DatabaseManager(str(tmp_path / "workforce-idempotent.db"))
+    db.initialize()
+    session = db.get_session()
+    employee_service = EmployeeService(session)
+
+    employee_service.ensure_default_workforce()
+    first_count = session.query(UserIdentity).count()
+    employee_service.ensure_default_workforce()
+
+    assert session.query(UserIdentity).count() == first_count
+    session.close()

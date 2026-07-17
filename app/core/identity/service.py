@@ -13,7 +13,7 @@ from app.core.identity.exceptions import (
     InvalidManager,
 )
 from app.core.identity.models import Identity
-from app.database.models import UserIdentity
+from app.database.models import Employee, UserIdentity
 
 
 class IdentityService:
@@ -70,6 +70,29 @@ class IdentityService:
 
     def get_identity(self, identity_id: int) -> Identity:
         return self._to_domain(self._get_record(identity_id))
+
+
+    def get_for_employee(self, employee_id: int) -> Identity:
+        record = self.session.query(UserIdentity).filter_by(employee_id=employee_id).first()
+        if record is None:
+            raise IdentityNotFound(f"No identity is linked to employee {employee_id}")
+        return self._to_domain(record)
+
+    def link_employee(self, identity_id: int, employee_id: int) -> Identity:
+        record = self._get_record(identity_id)
+        employee = self.session.query(Employee).filter_by(id=employee_id).first()
+        if employee is None:
+            raise ValueError(f"Employee {employee_id} was not found")
+        existing = self.session.query(UserIdentity).filter(
+            UserIdentity.employee_id == employee_id,
+            UserIdentity.id != identity_id,
+        ).first()
+        if existing is not None:
+            raise DuplicateIdentity(f"Employee {employee_id} already has an identity")
+        record.employee_id = employee_id
+        record.updated_at = datetime.now(timezone.utc)
+        self.session.commit()
+        return self._to_domain(record)
 
     def list_identities(
         self,

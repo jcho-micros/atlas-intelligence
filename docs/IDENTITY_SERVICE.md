@@ -35,3 +35,13 @@ python -m alembic upgrade head
 
 New test databases created through `DatabaseManager.initialize()` receive the current
 schema automatically.
+
+## Employee integration
+
+`EmployeeService.ensure_default_workforce()` now synchronizes the workforce with the canonical identity registry.
+
+- John Cho is linked to the human owner identity (`john@atlas.local`).
+- Every other default workforce member receives an `ai_employee` identity.
+- Identity `employee_id` links are one-to-one and enforced by the database.
+- Employee department and manager relationships are mirrored onto the identity.
+- Re-running workforce initialization is idempotent and does not create duplicate identities.
