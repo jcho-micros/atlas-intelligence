@@ -17,6 +17,7 @@ from app.services.product_idea_service import ProductIdeaService
 from app.services.vendor_intelligence_service import VendorIntelligenceService
 from app.services.finance_intelligence_service import FinanceIntelligenceService
 from app.services.design_manufacturing_service import DesignManufacturingService
+from app.dashboard.company_page import render_company_management
 from app.utils.settings import Settings
 
 st.set_page_config(page_title="Atlas Intelligence", layout="wide")
@@ -353,6 +354,7 @@ st.divider()
 NAVIGATION = {
     "🏢 Company": [
         "Headquarters",
+        "Company Management",
         "Executive Office",
         "Strategy Room",
         "Portfolio Office",
@@ -400,6 +402,11 @@ section = st.sidebar.selectbox("Section", list(NAVIGATION.keys()))
 active_page = st.sidebar.selectbox("Page", NAVIGATION[section])
 st.sidebar.divider()
 st.sidebar.caption("Tip: Atlas is organized like a headquarters: Company, Workforce, and Intelligence.")
+
+if active_page == "Company Management":
+    with db.get_session() as session:
+        render_company_management(session)
+
 
 if active_page == "Headquarters":
     st.header("Atlas Headquarters")
